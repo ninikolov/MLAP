@@ -53,10 +53,16 @@ def read_file4(input_file):
             for n in range(1, 11): 
                 X[i - 10][n - 1] = rows[i - n ][0]
             for n in range(11, 21): 
-                X[i - 10][n - 1] = rows[i - (n - 10) ][1]    
-            # X[i - 10][20] = price(float(rows[i - 9][1]), float(rows[i - 10][1]))
-            # Y[i - 10] = rows[i][1]
-            Y[i - 10] = price(float(rows[i - 9][1]), float(rows[i - 10][1]))
+                X[i - 10][n - 1] = rows[i - (n - 10) ][1]
+            Y[i - 10] = price(float(rows[i][1]), float(rows[i - 1][1]))
+            """
+            if i < 20: 
+                current_price = float(rows[i][1])
+                previous_price = float(rows[i - 1][1])
+                change = current_price - previous_price
+                percentage = (100 * change) / previous_price
+                print i, "Current: ", current_price, " Previous: ", previous_price, " Chage: ", percentage
+            """
     print X[0], Y[0], Y[1]
     print "Last:", X[len(X) - 1], Y[len(Y) - 1]
     return X, Y
@@ -76,12 +82,19 @@ def read_file3(input_file):
     return X, Y
 
 def normalize_data(data):
-    for i in range(0, data.shape[1]-1): 
-        mean = np.mean(data[:, i])
-        sdt = np.std(data[:, i])
-        print mean, sdt
-        data[:, i] = (data[:, i] - mean) / sdt
-    print "Normal: ", data[0]
+    try: 
+        cols = data.shape[1]
+        for i in range(0, cols - 1): 
+            mean = np.mean(data[:, i])
+            sdt = np.std(data[:, i])
+            print mean, sdt
+            data[:, i] = (data[:, i] - mean) / sdt
+    except IndexError: 
+        mean = np.mean(data)
+        sdt = np.std(data)
+        print "Array: ", mean, sdt
+        data = (data - mean) / sdt
+    # print "Normal: ", data[0]
     return data
 
 def mean_squared_loss(theta, x, y):
@@ -109,72 +122,23 @@ def grad(theta, x, y):
 def feature_selection_financial_data(data):  
     m, n = np.shape(data)  
     # return np.array([data[:, i] for i in range(10, len(data-3))])
-    output = np.array([data[:, i] - data[:, i + 1] for i in range(n - 1)])
-    print "output: ", np.shape(output)
+    # output = np.array([data[:, i] - data[:, i + 1] for i in range(n - 1)])
+    # print "output: ", np.shape(output)
     # return output
-    new_data = np.ones(shape=(len(data), 3))
+    new_data = np.ones(shape=(len(data), 5))
     slice_size = len(data[0]) / 2
     
     new_data[:, 0] = data[: , slice_size ]
     new_data[:, 1] = data[: , slice_size] - data[: , slice_size + 1]
-    # new_data[:, 2] = slice_and_sum(data, slice_size, len(data[0]) - 1)   
+    new_data[:, 2] = data[: , slice_size + 1] - data[: , slice_size + 2]
+    new_data[:, 3] = data[: , slice_size + 1]
     
     return new_data
 
 def slice_and_sum(data, col1, col2):
     data_slice = data[:, range(col1, col2)]
     return np.array([np.sum(row) / len(row) for row in data_slice])
-    
-def linear_numpy2(input_filename):
-    x, y = read_file3(input_filename)
-    # x = feature_selection_financial_data(x)
-    x_print = np.array(np.arange(0, len(y)))
-    w = np.linalg.lstsq(x, y)[0]  
-    print(w)
-    sq_error = mean_squared_loss(w, x, y)
-    print sq_error
-    line = np.zeros(len(y))
-    for i in range(len(x[0])): 
-        line += w[i] * x[:, i]
-    plt.plot(x_print, line, 'r-', x_print, y, 'o')
-    plt.show()
-    
-def linear_numpy2_cv(input_filename):
-    x, y = read_file3(input_filename)
-    # x = feature_selection_financial_data(x)
-    
-    train_x = x[0 : len(x) / 2]
-    train_y = y[0 : len(y) / 2]
-    validate_x = x[len(x) / 2 : len(x)]
-    validate_y = y[len(y) / 2 : len(y)]
-    
-    x_print = np.array(np.arange(0, len(y)))
-    w = np.linalg.lstsq(x, y)[0]  
-    print(w)
-    sq_error = mean_squared_loss(w, x, y)
-    print sq_error
-    line = np.zeros(len(y))
-    for i in range(len(x[0])): 
-        line += w[i] * x[:, i]
-    plt.plot(x_print, line, 'r-', x_print, y, 'o')
-    plt.show()
-    
-def linear2():
-    x, y = read_file2('stock_price.csv')
-    x_print = np.array(np.arange(0, len(y)))
-    m, n = np.shape(x)
-    print m, n
-    max_iterations = 200
-    theta = np.ones(n)
-    print theta
-    theta = fmin_bfgs(mean_squared_loss, theta, args=(x, y), maxiter=max_iterations)
-    print theta
-    line = np.zeros(len(y))
-    for i in range(n): 
-        line += theta[i] * x[:, i]
-    plt.plot(x_print, line, 'r-', x_print, y, 'o')
-    plt.show()
-    
+
 def custom_callback(theta):
     print "Theta: ", theta
     
@@ -182,38 +146,49 @@ def linear2_CV():
     x, y = read_file2('stock_price.csv')
     x = feature_selection_financial_data(x)
     x = normalize_data(x)
-    train_x = x[0 : len(x) / 2]
-    train_y = y[0 : len(y) / 2]
-    validate_x = x[len(x) / 2 : len(x)]
-    validate_y = y[len(y) / 2 : len(y)]
-    """
-    train_x = np.array([x[n] for n in range(0, len(x), 2)])
-    train_y = np.array([y[n] for n in range(0, len(y), 2)])
-    validate_x = np.array([x[n] for n in range(1, len(x), 2)])
-    validate_y = np.array([y[n] for n in range(1, len(y), 2)])
-    """
-    x_print = np.array(np.arange(len(validate_y)))
-    # print x[0]
-    print train_x[0]
+    y = normalize_data(y)
+    fold_1_x = x[0 : len(x) / 2]
+    fold_1_y = y[0 : len(y) / 2]
+    fold_2_x = x[len(x) / 2 : len(x)]
+    fold_2_y = y[len(y) / 2 : len(y)]
+    fold_1_x_n = normalize_data(x[0 : len(x) / 2])
+    fold_1_y_n = normalize_data(y[0 : len(y) / 2])
+    fold_2_x_n = normalize_data(x[len(x) / 2 : len(x)])
+    fold_2_y_n = normalize_data(y[len(y) / 2 : len(y)])
+    x_print = np.array(np.arange(len(fold_2_y)))
+    # print fold_1_x[0]
     m, n = np.shape(x)
     print "Shape of data: ", m, " rows, ", n, " cols."
-    max_iterations = 400
+    max_iterations = 100
     theta = np.ones(n)
-    # print theta
-    theta = fmin_bfgs(mean_squared_loss, theta, args=(train_x, train_y), norm=float('-inf'), maxiter=max_iterations)
+    theta = fmin_bfgs(mean_squared_loss, theta, args=(fold_1_x_n, fold_1_y_n), norm=float('-inf'), maxiter=max_iterations)
     print theta
-    sq_loss = squared_loss(theta, validate_x, validate_y)
+    sq_loss = squared_loss(theta, fold_2_x, fold_2_y)
     print "validate sq loss: ", sq_loss
-    train_msq = mean_squared_loss(theta, train_x, train_y)
-    validate_msq = mean_squared_loss(theta, validate_x, validate_y)
+    train_msq = mean_squared_loss(theta, fold_1_x_n, fold_1_y_n)
+    validate_msq = mean_squared_loss(theta, fold_2_x, fold_2_y)
     print "Train mean squared loss: ", train_msq
     print "Validate mean squared loss: ", validate_msq
-    line = np.zeros(len(validate_y))
+    
+    theta2 = np.ones(n)
+    theta2 = fmin_bfgs(mean_squared_loss, theta, args=(fold_2_x_n, fold_2_y_n), norm=float('-inf'), maxiter=max_iterations)
+    print theta2
+    sq_loss2 = squared_loss(theta2, fold_1_x, fold_1_y)
+    print "train 2 sq loss: ", squared_loss(theta2, fold_2_x_n, fold_2_y_n)
+    print "validate 2 sq loss: ", sq_loss2
+    train_msq2 = mean_squared_loss(theta2, fold_2_x_n, fold_2_y_n)
+    validate_msq2 = mean_squared_loss(theta2, fold_1_x, fold_1_y)
+    print "Train 2 mean squared loss: ", train_msq2
+    print "Validate 2 mean squared loss: ", validate_msq2
+
+    print "Average validate mean squared loss: ", (validate_msq + validate_msq2) / 2
+    
+    line = np.zeros(len(fold_2_y))
     # volume = np.zeros(len(y))
     # line = theta[len(theta) - 1] + np.array([])
     for i in range(n): 
-        line += theta[i] * validate_x[:, i]
-    plt.plot(x_print, line, 'r-', x_print, validate_y, 'o')
+        line += theta[i] * fold_2_x[:, i]
+    plt.plot(x_print, line, 'r-', x_print, fold_2_y, 'o')
     # plt.plot(validate_x[:, 0], line, 'r-', validate_x[:, 0], validate_y, 'o')
     plt.show()
     
@@ -253,27 +228,45 @@ def accuracy(theta, x, y):
                 winner = j 
         if int(y[i]) == winner: 
             success += 1
-    print "\nAccuracy: ", (success * 100) / m, "%"
-            
+    accuracy = (success * 100) / m
+    print "\nAccuracy: ", accuracy, "%"
+    return accuracy            
 
 def logistic():
     x, y = read_file4('stock_price.csv')  
     x = feature_selection_financial_data(x)
-    x = normalize_data(x)
+    # x = normalize_data(x)
+    # y = normalize_data(y)
     train_x = x[0 : len(x) / 2]
     train_y = y[0 : len(y) / 2]
     validate_x = x[len(x) / 2 : len(x)]
     validate_y = y[len(y) / 2 : len(y)]
+    train_x_n = normalize_data(train_x)
+    # train_y_n = normalize_data(train_y)
+    validate_x_n = normalize_data(validate_x)
+    # validate_y_n = normalize_data(validate_y)
     print y.shape, x.shape
     m, n = np.shape(x)
+    
     max_iterations = 100
     theta = np.ones((5, n))
-    print theta.shape
-    theta = fmin_bfgs(compute_cost2, theta, args=(train_x, train_y), maxiter=max_iterations)
+    print theta
+    theta = fmin_bfgs(compute_cost2, theta, fprime=grad_lr, args=(train_x_n, train_y), maxiter=max_iterations)
     theta = theta.reshape((5, np.shape(x)[1]))
     print theta
-    test_classess(theta, validate_x, validate_y)
-    accuracy(theta, validate_x, validate_y)
+    # test_classess(theta, validate_x, validate_y)
+    ac1 = accuracy(theta, validate_x, validate_y)
+    
+    max_iterations = 100
+    theta2 = np.ones((5, n))
+    print theta2
+    theta2 = fmin_bfgs(compute_cost2, theta2, fprime=grad_lr, args=(validate_x_n, validate_y), maxiter=max_iterations)
+    theta2 = theta.reshape((5, np.shape(x)[1]))
+    print theta2
+    # test_classess(theta2, train_x, train_y)
+    ac2 = accuracy(theta2, train_x, train_y)
+    
+    print "Average: ", (ac1 + ac2) / 2, "%"
     
 def price(current_price, previous_price):
     change = current_price - previous_price
@@ -328,17 +321,38 @@ def compute_cost2(theta, X, y):
     m = X.shape[0] 
     n = theta.shape[0]
     loss = 0    
-    grad = np.zeros((m, n))
+    grad = np.zeros(theta.shape)
+    # For each data point 
     for i in range(0, m): 
-        lse = logsumexp([np.dot(theta[j], X[i]) for j in range(0, n)])
-        theta_x = np.dot(theta[y[i]], X[i])
-        loss += -(theta_x - lse)
-        # for k in range(0, n):
-        #    prob = is_class(theta, X[i], k)
-        #    print prob
-        #    grad[i][k] = -np.sum(np.dot(X[i], (identity(y[i], k) - prob)))
-    print "Output: ", loss
+        # Vector of dot products for every theta
+        dot_vector = np.array([np.dot(theta[j], X[i]) for j in range(0, n)])
+        lse = logsumexp(dot_vector)
+        # Dot product of currently looked class and data point
+        theta_current_x = np.dot(theta[y[i]], X[i])
+        loss += -(theta_current_x - lse)
+        """
+        for k in range(0, n):
+            prob = is_class(theta, X[i], k)
+            #print prob
+            grad[k] = -(np.dot(X[i], (identity(y[i], k) - prob)))
+        """
+    #print "Output: ", loss
     return loss
+
+def func_wrapper(theta, X, y):
+    loss, grad = compute_cost2(theta, X, y)
+    
+def grad_lr(theta, X, y):
+    m = X.shape[0] 
+    n = theta.shape[0]
+    grad = np.zeros(theta.shape)
+    for i in range(0, m): 
+        for k in range(0, n):
+            prob = is_class(theta, X[i], k)
+            # print prob
+            grad[k] = -(np.dot(X[i], (identity(y[i], k) - prob)))
+    #print "Grad: ", grad.flatten()
+    return grad
 
 def log_sum_exp(Vector):
     # first find max of the sequence
@@ -365,14 +379,6 @@ def predict_class(theta, target, x):
     predictions = np.zeros((len(x), 1))
     predictions[:, 0] = np.argmax(probabilities, axis=0)
     return predictions
-    """
-    for it in range(0, h.shape[0]):
-        if h[it] > 0.5:
-            p[it, 0] = 1
-        else:
-            p[it, 0] = 0
- 
-    return p"""
 
 def sigmoid(X):
     '''Compute the sigmoid function '''
@@ -387,9 +393,7 @@ def sigmoid(X):
 if __name__ == '__main__':
 
     # linear2()
-    #linear2_CV()
+    # linear2_CV()
     logistic()
-    # dummy_test()
-    # linear_numpy2('stock_price_test2.csv')
     
 # EOF

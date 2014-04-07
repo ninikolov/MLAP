@@ -79,3 +79,60 @@ def loss(theta, x, y):
     # print sq_loss, gradient
     
     return sq_loss
+
+
+
+
+################################################
+
+
+def linear_numpy2_cv(input_filename):
+    x, y = read_file3(input_filename)
+    # x = feature_selection_financial_data(x)
+    
+    train_x = x[0 : len(x) / 2]
+    train_y = y[0 : len(y) / 2]
+    validate_x = x[len(x) / 2 : len(x)]
+    validate_y = y[len(y) / 2 : len(y)]
+    
+    x_print = np.array(np.arange(0, len(y)))
+    w = np.linalg.lstsq(x, y)[0]  
+    print(w)
+    sq_error = mean_squared_loss(w, x, y)
+    print sq_error
+    line = np.zeros(len(y))
+    for i in range(len(x[0])): 
+        line += w[i] * x[:, i]
+    plt.plot(x_print, line, 'r-', x_print, y, 'o')
+    plt.show()
+    
+def linear2():
+    x, y = read_file2('stock_price.csv')
+    x_print = np.array(np.arange(0, len(y)))
+    m, n = np.shape(x)
+    print m, n
+    max_iterations = 200
+    theta = np.ones(n)
+    print theta
+    theta = fmin_bfgs(mean_squared_loss, theta, args=(x, y), maxiter=max_iterations)
+    print theta
+    line = np.zeros(len(y))
+    for i in range(n): 
+        line += theta[i] * x[:, i]
+    plt.plot(x_print, line, 'r-', x_print, y, 'o')
+    plt.show()
+    
+    
+def linear_numpy2(input_filename):
+    x, y = read_file3(input_filename)
+    # x = feature_selection_financial_data(x)
+    x_print = np.array(np.arange(0, len(y)))
+    w = np.linalg.lstsq(x, y)[0]  
+    print(w)
+    sq_error = mean_squared_loss(w, x, y)
+    print sq_error
+    line = np.zeros(len(y))
+    for i in range(len(x[0])): 
+        line += w[i] * x[:, i]
+    plt.plot(x_print, line, 'r-', x_print, y, 'o')
+    plt.show()
