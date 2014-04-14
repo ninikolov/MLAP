@@ -4,12 +4,150 @@ Created on 14 Mar 2014
 @author: nikola
 '''
 
+def visualize_bn(network):
+    G = nx.DiGraph()
+    for i in range(len(network)):
+        for n in range(len(network[i])):  
+            if network[i][n] == 1: 
+                G.add_edges_from([(i, n)])
+    pos = nx.spring_layout(G)
+    nx.draw(G, pos)
+    plt.show()   
+
 def num(number):
     '''Convert a string to a number.'''
     try:
         return int(number)
     except ValueError:
         return float(number)
+    
+def read_file4(input_file):
+    with open(input_file, 'rb') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',')
+        rows = list(reader)
+        X = np.ones(shape=(len(rows) - 10, 21))
+        Y = np.zeros(len(rows) - 10)
+        for i in range(0, len(rows)):
+            if i < 10: 
+                continue
+            for n in range(1, 11): 
+                X[i - 10][n - 1] = rows[i - n ][0]
+            for n in range(11, 21): 
+                X[i - 10][n - 1] = rows[i - (n - 10) ][1]
+            Y[i - 10] = compute_class(float(rows[i][1]), float(rows[i - 1][1]))
+            if i < 20 and DEBUG: 
+                current_price = float(rows[i][1])
+                previous_price = float(rows[i - 1][1])
+                change = current_price - previous_price
+                percentage = (100 * change) / previous_price
+                print i, "Current: ", current_price, " Previous: ", previous_price, " Chage: ", percentage
+    print X[0], Y[0], Y[1]
+    print "Last:", X[len(X) - 1], Y[len(Y) - 1]
+    return X, Y
+
+
+def predict_class(theta, target, x):
+    # m, n = x.shape
+    # p = np.zeros(shape=(m, 1))  
+    
+    theta_x = np.dot(theta, x)
+    h = np.exp(theta_x)
+    probabilities = h / np.sum(h, axis=0)
+ 
+    predictions = np.zeros((len(x), 1))
+    predictions[:, 0] = np.argmax(probabilities, axis=0)
+    return predictions
+
+def sigmoid(X):
+    '''Compute the sigmoid function '''
+    # d = zeros(shape=(X.shape))
+ 
+    den = 1.0 + np.exp (-1.0 * X)
+ 
+    d = 1.0 / den
+ 
+    return d
+
+
+def compute_cost(theta, X, y):
+    """Original one"""
+    theta = theta.reshape((5, np.shape(X)[1]))
+    # print theta
+    m = X.shape[0] 
+    n = theta.shape[0]
+    loss = 0.
+    # grad = np.zeros(theta.shape)
+    # For each data point 
+    for i in range(0, m): 
+        # Vector of dot products for every theta
+        dot_vector = np.array([np.dot(theta[j], X[i]) for j in range(0, n)])
+        lse = logsumexp(dot_vector)
+        # Dot product of currently looked class and data point
+        theta_current_x = np.dot(theta[int(y[i])], X[i])
+        loss += -(theta_current_x - lse)
+        """
+        for k in range(0, n):
+            prob = class_probability(theta, X[i], k)
+            #print prob
+            grad[k] = -(np.dot(X[i], (identity(y[i], k) - prob)))
+        """
+    print "Output: ", loss
+    return loss
+
+
+def log_sum_exp(Vector):
+    # first find max of the sequence
+    Max = Vector[0]
+    for LP in Vector:
+        if (LP > Max): 
+            Max = LP
+    Sum = 0.0
+    for LP in Vector:
+        Sum += np.exp(LP - Max)    
+    jazz = (Max + np.log(Sum))
+        
+    return jazz
+
+def compute_cost2(theta, X, y):
+    theta = theta.reshape((5, np.shape(X)[1]))
+    # print theta
+    m = X.shape[0] 
+    n = theta.shape[0]
+    loss = 0   
+    # theta_x = np.dot(theta, X) 
+    theta_x = np.array(np.dot(theta, X[i]) for i in range(0, m))
+    print theta_x
+    hypothesis = np.exp(theta_x)      
+    probabilities = hypothesis / np.sum(hypothesis, axis=0)
+    lse = np.log(probabilities)
+    
+def compute_cost(theta, X, y): 
+    theta = theta.reshape((5, np.shape(X)[1]))
+    # print theta
+    m = X.shape[0] 
+    n = theta.shape[0]
+    calculated_log = np.sum(np.array([log_sum_exp(np.dot(X, theta[i])) for i in range(0, n)]))   
+    loss = 0
+    for i in range(0, n): 
+        loss += np.sum(np.dot(X, theta[i]) - calculated_log) 
+    # loss = np.sum((np.dot(X, theta[i]) - calculated_log) for i in range(n))
+    print -loss, theta.flatten()
+    return -loss
+    # return J[0][0]
+
+def read_file3(input_file):
+    with open(input_file, 'rb') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',')
+        rows = list(reader)
+        X = np.ones(shape=(len(rows) - 10, 2))
+        Y = np.zeros(len(rows) - 10)
+        for i in range(0, len(rows)):
+            if i < 10: 
+                continue
+            X[i - 10][0] = rows[i][2]                  
+            Y[i - 10] = rows[i][1]
+    print X[0], Y[0], Y[1]    
+    return X, Y
 
 def read_file(input_file):
     X = []
@@ -107,7 +245,7 @@ def linear_numpy2_cv(input_filename):
     plt.show()
     
 def linear2():
-    x, y = read_file2('stock_price.csv')
+    x, y = read_data_file('stock_price.csv')
     x_print = np.array(np.arange(0, len(y)))
     m, n = np.shape(x)
     print m, n
@@ -136,3 +274,5 @@ def linear_numpy2(input_filename):
         line += w[i] * x[:, i]
     plt.plot(x_print, line, 'r-', x_print, y, 'o')
     plt.show()
+    
+    

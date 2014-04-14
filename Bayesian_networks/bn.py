@@ -17,6 +17,9 @@ import random
 from numpy import ndarray
 
 def read_data_file(input_file):
+    """Read a csv data file and produce a numpy ndarray. 
+    0s and 1s are expected. 
+    """
     with open(input_file, 'rb') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         rows = list(reader)
@@ -25,16 +28,6 @@ def read_data_file(input_file):
             # print rows[i]
             data[i] = rows[i]    
     return data
-
-def visualize_bn(network):
-    G = nx.DiGraph()
-    for i in range(len(network)):
-        for n in range(len(network[i])):  
-            if network[i][n] == 1: 
-                G.add_edges_from([(i, n)])
-    pos = nx.spring_layout(G)
-    nx.draw(G, pos)
-    plt.show()   
     
 def read_conditions(structure, index):
     conditions = []
@@ -43,10 +36,19 @@ def read_conditions(structure, index):
             conditions.append(item)
     return conditions
 
+def print_probability(conditions, probability, var_index):
+    condition_str = ""
+    for condition, bool_value in conditions: 
+        condition_str = condition_str + str(condition) + " = " + str(bool_value) + "; "
+    condition_str = condition_str[:-2]
+    print "Probability(", var_index, " = ", 1, "|", condition_str, ") =", probability
+    print "Probability(", var_index, " = ", 0, "|", condition_str, ") =", 1 - probability
+
 def calculate_conditional_prob(var_index, cond_list, data):
     """"""
     rows, cols = data.shape
     output = OrderedDict()
+    # Generate all combinations for values of conditions
     var_combinations = list(itertools.product([0, 1], repeat=len(cond_list)))
     for combination in var_combinations: 
         count = 0
@@ -54,8 +56,8 @@ def calculate_conditional_prob(var_index, cond_list, data):
         values = zip(cond_list, combination)
         for row in range(rows): 
             success = True
-            for i, b in values: 
-                if data[row][i] != b: 
+            for condition, bool_value in values: 
+                if data[row][condition] != bool_value: 
                     success = False
                     break
             if success: 
@@ -63,15 +65,9 @@ def calculate_conditional_prob(var_index, cond_list, data):
                     count += 1
                 else: 
                     count_not += 1
-        # print "Count:", count, "count_not:", count_not, values
         probability = (1. + float(count)) / (2. + float(count + count_not))
         output[tuple(values)] = probability
-        condition_str = ""
-        for i, b in values: 
-            condition_str = condition_str + str(i) + " = " + str(b) + "; "
-        condition_str = condition_str[:-2]
-        print "Probability(", var_index, " = ", 1, "|", condition_str, ") =", probability
-        print "Probability(", var_index, " = ", 0, "|", condition_str, ") =", 1 - probability
+        print_probability(values, probability, var_index)
     return output
     
 def estimate_parameter(structure, data, index):    
@@ -111,7 +107,7 @@ def conditional_sample(key, variable, current_dict):
         if found: 
             # print output
             output[key] = sample(value)
-            #print "key:", key, "var:", var, "value:", value, "sample:", output[key]
+            # print "key:", key, "var:", var, "value:", value, "sample:", output[key]
     return output, remaining
             
 def ancestral_sampling(network):
@@ -120,11 +116,11 @@ def ancestral_sampling(network):
     for key, item in network.items(): 
         if isinstance(item, list): 
             output[key] = sample(item[0])
-            #print "key:", key, "sample:", output[key]
+            # print "key:", key, "sample:", output[key]
         elif isinstance(item, OrderedDict):
             output, rem2 = conditional_sample(key, item, output)
             remaining = remaining + rem2
-    #print "Remaining:", remaining
+    # print "Remaining:", remaining
     for item in remaining: 
         output, rem2 = conditional_sample(item, network[item], output)
     return output
@@ -168,11 +164,12 @@ def bnbayesfit(structure_file_name, data_file_name):
     return fittedbn
     
 def bnsample(fittedbn, nsamples):
+    """"""
     output = np.empty((nsamples, len(fittedbn)), dtype=np.int)
     for i in range(nsamples): 
         sample = []
         d = ancestral_sampling(fittedbn) 
-        #print d
+        # print d
         for key in sorted(d.keys()): 
             output[i][key] = d[key]
         # output.append(sample)
