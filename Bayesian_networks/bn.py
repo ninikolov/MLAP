@@ -7,14 +7,12 @@ Bayesian networks.
 @author: Y6189686
 '''
 
-import csv
-import numpy as np
-from matplotlib import pyplot as plt
-import networkx as nx 
-import itertools
 from collections import OrderedDict
+import csv
+import itertools
 import random
-from numpy import ndarray
+
+import numpy as np
 
 def read_data_file(input_file):
     """Read a csv data file and produce a numpy ndarray. 
@@ -25,7 +23,6 @@ def read_data_file(input_file):
         rows = list(reader)
         data = np.zeros((len(rows), len(rows[0])), dtype=np.int)
         for i in range(0, len(rows)):
-            # print rows[i]
             data[i] = rows[i]    
     return data
     
@@ -44,7 +41,7 @@ def print_probability(conditions, probability, var_index):
     print "Probability(", var_index, " = ", 1, "|", condition_str, ") =", probability
     print "Probability(", var_index, " = ", 0, "|", condition_str, ") =", 1 - probability
 
-def calculate_conditional_prob(var_index, cond_list, data):
+def calculate_conditional_prob(var_index, cond_list, data, alpha=1., beta=1.):
     """"""
     rows, cols = data.shape
     output = OrderedDict()
@@ -65,7 +62,7 @@ def calculate_conditional_prob(var_index, cond_list, data):
                     count += 1
                 else: 
                     count_not += 1
-        probability = (1. + float(count)) / (2. + float(count + count_not))
+        probability = (alpha + float(count)) / (alpha + beta + float(count + count_not))
         output[tuple(values)] = probability
         print_probability(values, probability, var_index)
     return output
@@ -147,15 +144,16 @@ def ancestral_sampling_r(network, predefined=None):
     return output
     
 def bnbayesfit(structure_file_name, data_file_name):
+    """"""
     structure = read_data_file(structure_file_name)
-    if not isinstance(data_file_name, ndarray): 
+    # Data can actually also be a ndarray
+    if not isinstance(data_file_name, np.ndarray): 
         data = read_data_file(data_file_name)
     else: 
         data = data_file_name
     rows, cols = data.shape
-    print rows, cols
+    print "Data is ", rows, "rows", cols, "cols."
     fittedbn = {}
-    # print "Theta: ", theta
     for i in range(cols): 
         fittedbn[i] = estimate_parameter(structure, data, i)
     # sort
@@ -167,12 +165,8 @@ def bnsample(fittedbn, nsamples):
     """"""
     output = np.empty((nsamples, len(fittedbn)), dtype=np.int)
     for i in range(nsamples): 
-        sample = []
-        d = ancestral_sampling(fittedbn) 
-        # print d
-        for key in sorted(d.keys()): 
-            output[i][key] = d[key]
-        # output.append(sample)
+        sample_dict = ancestral_sampling(fittedbn) 
+        output[i] = np.array([sample_dict[key] for key in sorted(sample_dict.keys())])
     print output
     return output
     

@@ -4,6 +4,34 @@ Created on 14 Mar 2014
 @author: nikola
 '''
 
+def test_logistic():
+    x, y = read_data_file('stock_price.csv', True)  
+    x = feature_selection_financial_data_logistic(x)
+    
+    train_x = x[0 : len(x) / 2]
+    train_y = y[0 : len(y) / 2]
+    validate_x = x[len(x) / 2 : len(x)]
+    validate_y = y[len(y) / 2 : len(y)]
+    train_x_n = normalize_data(train_x)
+    validate_x_n = normalize_data(validate_x)
+    
+    logreg = linear_model.LogisticRegression()
+    logreg.fit(validate_x, validate_y)
+    print logreg.get_params()
+    print logreg.score(train_x, train_y)
+
+def identity(class1, class2):
+    if class1 == class2: 
+        return 1
+    return 0
+
+def test_classess(theta, data, y, points_to_test=50):
+    for i in range(points_to_test): 
+        print "\nData Point ", i
+        
+        for j in range(len(theta)): 
+            print "Class ", j , " with prob ", class_probability(theta, data[i], j), " | Actual: ", y[i]
+
 def visualize_bn(network):
     G = nx.DiGraph()
     for i in range(len(network)):
@@ -69,6 +97,35 @@ def sigmoid(X):
     return d
 
 
+
+
+
+def compute_cost(theta, X, y, regularise=False):
+    """21.04"""
+    g = True
+    theta = theta.reshape((5, np.shape(X)[1]))
+    #accuracy(theta, X, y)
+    m = X.shape[0] 
+    n = theta.shape[0]  
+    loss = 0.
+    grad = np.zeros(shape=(n, np.shape(X)[1]))
+    for i in range(0, m):        
+        current_class = int(y[i])
+        probability = class_probability(theta, X[i], current_class)
+        loss += np.log(probability)
+        if g: 
+            for k in range(0, n):
+                grad[k] += np.dot(X[i], (identity(current_class, k) - probability))
+    # print "Output: ", -loss, -grad.flatten() 
+    if not g: 
+        if regularise: 
+            return -(LAMBDA * loss - (1 - LAMBDA) * np.sum([abs(th) ** 2 for th in theta.flatten()]))
+        else: 
+            return -loss
+    return [-loss, grad.flatten()]
+
+
+
 def compute_cost(theta, X, y):
     """Original one"""
     theta = theta.reshape((5, np.shape(X)[1]))
@@ -107,6 +164,19 @@ def log_sum_exp(Vector):
     jazz = (Max + np.log(Sum))
         
     return jazz
+
+def grad_lr(theta, X, y):
+    m = X.shape[0] 
+    n = theta.shape[0]
+    grad = np.zeros(theta.shape)
+    for i in range(0, m): 
+        for k in range(0, n):
+            prob = class_probability(theta, X[i], k)
+            # print prob
+            grad[k] = -(np.dot(X[i], (identity(y[i], k) - prob)))
+    # print "Grad: ", grad.flatten()
+    return grad
+
 
 def compute_cost2(theta, X, y):
     theta = theta.reshape((5, np.shape(X)[1]))
