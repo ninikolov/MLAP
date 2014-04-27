@@ -1,7 +1,7 @@
 '''
 Created on 25 Feb 2014
 
-Code for MLAP Open Assessment Part 2. 
+Code for MLAP Open Assessment, Part 2. 
 Bayesian networks. 
 
 @author: Y6189686
@@ -27,6 +27,8 @@ def read_data_file(input_file):
     return data
     
 def read_conditions(structure, index):
+    """Compose a list of conditions for a variable, 
+    from a given structure of a BN."""
     conditions = []
     for item in range(structure.shape[1]): 
         if structure[item][index] == 1:
@@ -42,15 +44,18 @@ def print_probability(conditions, probability, var_index):
     print "Probability(", var_index, " = ", 0, "|", condition_str, ") =", 1 - probability
 
 def calculate_conditional_prob(var_index, cond_list, data, alpha=1., beta=1.):
-    """"""
-    rows, cols = data.shape
+    """Calculate conditional probabilities for a variable.
+    """
+    rows = data.shape[0]
+    # Output is an ordered dictionary, containing probability for every
+    # condition combination. 
     output = OrderedDict()
     # Generate all combinations for values of conditions
     var_combinations = list(itertools.product([0, 1], repeat=len(cond_list)))
     for combination in var_combinations: 
-        count = 0
-        count_not = 0
-        values = zip(cond_list, combination)
+        count_1_occurances = 0
+        count_0_occurances = 0
+        values = zip(cond_list, combination)  # possible values for combinations
         for row in range(rows): 
             success = True
             for condition, bool_value in values: 
@@ -59,20 +64,24 @@ def calculate_conditional_prob(var_index, cond_list, data, alpha=1., beta=1.):
                     break
             if success: 
                 if data[row][var_index] == 1: 
-                    count += 1
+                    count_1_occurances += 1
                 else: 
-                    count_not += 1
-        probability = (alpha + float(count)) / (alpha + beta + float(count + count_not))
+                    count_0_occurances += 1
+        # Calculate probability 
+        probability = (alpha + float(count_1_occurances)) / (alpha + beta + float(count_1_occurances + count_0_occurances))
         output[tuple(values)] = probability
         print_probability(values, probability, var_index)
     return output
     
 def estimate_parameter(structure, data, index):    
-    """Bayesian parameter estimate"""
-    rows, cols = data.shape
-    total = np.sum(data[:, index])
+    """Estimate parameter at index. 
+    Uses a bayesian approach. Implemented as described in section
+    9.4 of BRML book (page 199). 
+    """
+    rows = data.shape[0]
     conditions = read_conditions(structure, index)
-    if not conditions: 
+    if not conditions:  # if target variable has no conditions calculate directly
+        total = np.sum(data[:, index])  # count 1s at index
         prob = (1 + float(total)) / (2 + float(rows))
         print "Probability(", index, " = 0 ) =", 1 - prob
         print "Probability(", index, " = 1 ) =", prob
@@ -81,6 +90,7 @@ def estimate_parameter(structure, data, index):
         return calculate_conditional_prob(index, conditions, data)
 
 def sample(prob):
+    """"""
     rand = random.random()
     if rand < prob: 
         return 1
@@ -108,16 +118,18 @@ def conditional_sample(key, variable, current_dict):
     return output, remaining
             
 def ancestral_sampling(network):
+    """Implements ancestral sampling as described in slide 8 of the MLAP 
+    Markov Chain Monte Carlo lecture."""
+    # Sort by length
+    network = dict(sorted(network.iteritems(), key=lambda x: len(x[1])))
     output = {}
     remaining = []
     for key, item in network.items(): 
         if isinstance(item, list): 
             output[key] = sample(item[0])
-            # print "key:", key, "sample:", output[key]
         elif isinstance(item, OrderedDict):
             output, rem2 = conditional_sample(key, item, output)
             remaining = remaining + rem2
-    # print "Remaining:", remaining
     for item in remaining: 
         output, rem2 = conditional_sample(item, network[item], output)
     return output
@@ -144,21 +156,21 @@ def ancestral_sampling_r(network, predefined=None):
     return output
     
 def bnbayesfit(structure_file_name, data_file_name):
-    """"""
+    """Estimate parameters of bayesian network, defined in structure_file_name
+    by using data from data_file_name."""
+    # Structure of BN
     structure = read_data_file(structure_file_name)
-    # Data can actually also be a ndarray
     if not isinstance(data_file_name, np.ndarray): 
         data = read_data_file(data_file_name)
-    else: 
+    else:  # Data can also be an ndarray, rather than a file.  
         data = data_file_name
     rows, cols = data.shape
-    print "Data is ", rows, "rows", cols, "cols."
-    fittedbn = {}
+    print "Data is", rows, "rows", cols, "cols."
+    # fittedbn is dictionary of structures
+    fittedbn = {} 
     for i in range(cols): 
         fittedbn[i] = estimate_parameter(structure, data, i)
-    # sort
-    fittedbn = dict(sorted(fittedbn.iteritems(), key=lambda x: len(x[1])))
-    print fittedbn    
+    print fittedbn
     return fittedbn
     
 def bnsample(fittedbn, nsamples):
@@ -175,7 +187,6 @@ def learn_from_samples(fittedbn, nsamples, structure_file_name):
     fit2 = bnbayesfit(structure_file_name, samples)
 
 if __name__ == '__main__':
-    print read_data_file("bndata.csv")
     fittedbn = bnbayesfit("bnstruct.csv", "bndata.csv")
     bnsample(fittedbn, 10)
-    learn_from_samples(fittedbn, 10000, "bnstruct.csv")
+    # learn_from_samples(fittedbn, 10000, "bnstruct.csv")

@@ -4,9 +4,22 @@ Created on 14 Mar 2014
 @author: nikola
 '''
 
+
+# loss = LAMBDA * loss - (1 - LAMBDA) * np.sum([abs(theta_item) ** 2 for theta_item in theta.flatten()])
+
+# Vector of dot products for every theta
+dot_vector = np.array([np.dot(theta[j], X[i]) for j in range(0, num_classes)])
+lse = log_sum_exp(dot_vector)
+# Dot product of currently looked class and data point
+theta_current_x = np.dot(theta[int(y[i])], X[i])
+loss += (theta_current_x - lse)
+
 def test_logistic():
     x, y = read_data_file('stock_price.csv', True)  
-    x = feature_selection_financial_data_logistic(x)
+    # x = feature_selection_financial_data_logistic(x)
+    print "before", x.shape
+    x = LinearSVC(C=0.01, penalty="l1", dual=False).fit_transform(x, y)
+    print x.shape
     
     train_x = x[0 : len(x) / 2]
     train_y = y[0 : len(y) / 2]
@@ -17,8 +30,35 @@ def test_logistic():
     
     logreg = linear_model.LogisticRegression()
     logreg.fit(validate_x, validate_y)
-    print logreg.get_params()
+    print "Theta:", logreg.coef_
     print logreg.score(train_x, train_y)
+    print logreg.predict(train_x)
+    
+    clf = OutputCodeClassifier(LinearSVC(random_state=0), code_size=2, random_state=0)
+    clf.fit(train_x, train_y)
+    print clf.predict(validate_x)
+    print clf.score(validate_x, validate_y)
+    
+"""
+x_print = np.array(np.arange(len(validate_y)))
+    colors = ['r', 'g', 'b', 'c', 'y']
+    for i in range(5): 
+        cl_where = np.where(train_y == i)
+        scatter(x_print[cl_where], train_x[cl_where, 0], marker='o', c=colors[i])    
+    xlabel('Previous day price')
+    ylabel('Previous day value')
+    legend(["Class " + str(c) for c in range(5)])
+    show()     
+    """
+    
+    """    accs = []
+    for l in np.linspace(0., 1., num=11): 
+        LAMBDA = l
+        accs.append(reglogistic('stock_price.csv'))
+    print accs
+    """
+
+#####################################################
 
 def identity(class1, class2):
     if class1 == class2: 

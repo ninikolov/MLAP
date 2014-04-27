@@ -11,6 +11,7 @@ Linear regression and Logistic regression.
 import csv
 from sklearn import linear_model
 import copy, random
+import time
 
 from scipy.optimize import fmin_bfgs, minimize
 
@@ -24,7 +25,7 @@ from sklearn.multiclass import OutputCodeClassifier
 np.seterr(all='raise')
 np.set_printoptions(threshold=np.nan, precision=4)
 
-DEBUG = False
+DEBUG = True
 LAMBDA = 0.5
 
 def read_data_file(input_file, calculate_class=False):
@@ -39,25 +40,15 @@ def read_data_file(input_file, calculate_class=False):
         else: 
             Y = np.zeros(len(rows) - 10)
         for i in range(0, len(rows)):
-            # print i, rows[i]
             if i < 10: 
                 continue
-            for n in range(1, 11): 
+            for n in range(1, 11):  # 10 previous stock volumes
                 X[i - 10][n - 1] = rows[i - n ][0]
-            for n in range(11, 21): 
+            for n in range(11, 21):  # 10 previous prices
                 X[i - 10][n - 1] = rows[i - (n - 10) ][1]
-            if calculate_class:
-                # Calculate the class
+            if calculate_class:  # Calculate the class from the prices                
                 Y[i - 10] = compute_class(float(rows[i][1]), float(rows[i - 1][1]))
-                # print X[i - 10], Y[i - 10]
-                if i < 20 and DEBUG: 
-                    current_price = float(rows[i][1])
-                    previous_price = float(rows[i - 1][1])
-                    change = current_price - previous_price
-                    percentage = (100 * change) / previous_price
-                    print i, "Current: ", current_price, " Previous: ", previous_price, " Chage: ", percentage
-            else: 
-                # Use the price
+            else:  # Use the price                
                 Y[i - 10] = rows[i][1]
     if DEBUG: 
         pass
@@ -91,7 +82,7 @@ def mean_squared_loss(theta, x, y, regularised=False):
     loss = hypothesis - y
     mean_squared_loss = np.sum(loss ** 2) / data_count   
     if regularised: 
-        return LAMBDA * mean_squared_loss + (1 - LAMBDA) * np.sum([th ** 2 for th in theta])
+        return LAMBDA * mean_squared_loss + (1 - LAMBDA) * np.sum(theta ** 2)
     else:        
         return mean_squared_loss
 
@@ -116,10 +107,12 @@ def feature_selection_financial_data(data):
     """Feature selection"""
     m, n = np.shape(data)  
     slice_size = len(data[0]) / 2
-    new_data = np.ones(shape=(len(data), 3))
+    new_data = np.ones(shape=(len(data), 5))
     
-    new_data[:, 0] = data[: , slice_size ]
-    new_data[:, 1] = data[: , slice_size + 1]
+    new_data[:, 0] = (data[: , slice_size ] - data[: , slice_size + 1])
+    new_data[:, 1] = data[: , slice_size + 1] - data[: , slice_size + 2]
+    new_data[:, 2] = data[: , 0 ] - data[: , 1 ]
+    new_data[:, 3] = np.square(data[: , slice_size ])
     # for i in range(slice_size, n - 2): 
     #    new_data[:, i - slice_size + 1] = data[: , i] - data[: , i + 1]
             
@@ -134,12 +127,11 @@ def slice_and_sum(data, col1, col2):
     return np.array([np.sum(row) / len(row) for row in data_slice])
     
 def find_theta_linear(train_x, train_y, validate_x, validate_y, regularised=False, max_iterations=100):
-    m, n = np.shape(train_x)
-    theta = np.ones(n)
+    """"""
+    features_count = np.shape(train_x)[1]
+    theta = np.ones(features_count)
     theta = fmin_bfgs(mean_squared_loss, theta, args=(train_x, train_y, regularised), norm=float('-inf'), maxiter=max_iterations)
-    # print theta
-    sq_loss = squared_loss(theta, validate_x, validate_y)
-    print "validate sq loss: ", sq_loss
+    print "Optimized theta:", theta
     train_msq = mean_squared_loss(theta, train_x, train_y, regularised)
     validate_msq = mean_squared_loss(theta, validate_x, validate_y, regularised)
     print "Train mean squared loss: ", train_msq
@@ -148,10 +140,14 @@ def find_theta_linear(train_x, train_y, validate_x, validate_y, regularised=Fals
     
 def linear(input_file_name):
     """Linear regression algorithm for Task 1."""
+    print "Running linear regression on", input_file_name, ".\n"
     x, y = read_data_file(input_file_name)
     x = feature_selection_financial_data(x)
-    x = normalize_data(x)
-    y = normalize_data(y)
+    m, n = np.shape(x)    
+    print "Shape of data: ", m, " rows, ", n, " cols."
+    print x[0]
+    # x = normalize_data(x)
+    # y = normalize_data(y)
     
     fold_1_x = x[0 : len(x) / 2]
     fold_1_y = y[0 : len(y) / 2]
@@ -161,19 +157,16 @@ def linear(input_file_name):
     fold_1_x_n = normalize_data(x[0 : len(x) / 2])
     fold_1_y_n = normalize_data(y[0 : len(y) / 2])
     fold_2_x_n = normalize_data(x[len(x) / 2 : len(x)])
-    fold_2_y_n = normalize_data(y[len(y) / 2 : len(y)])
-    
-    x_print = np.array(np.arange(len(fold_2_y)))    
-    m, n = np.shape(x)    
-    print "Shape of data: ", m, " rows, ", n, " cols."
-    
+    fold_2_y_n = normalize_data(y[len(y) / 2 : len(y)])    
+    # Cross-fold validation. 
     theta1, validate_msq1 = find_theta_linear(fold_1_x_n, fold_1_y_n, fold_2_x, fold_2_y)
     theta2, validate_msq2 = find_theta_linear(fold_2_x_n, fold_2_y_n, fold_1_x, fold_1_y)
-    
+    # Average mean squared error. 
     average_msl = (validate_msq1 + validate_msq2) / 2
-    print "Average validate mean squared loss: ", average_msl
+    print "\n----\nAverage validate mean squared loss: ", average_msl
     
     if DEBUG: 
+        x_print = np.array(np.arange(len(fold_2_y)))    
         line = np.zeros(len(fold_2_y))
         for i in range(n): 
             line += theta1[i] * fold_2_x_n[:, i]
@@ -184,30 +177,30 @@ def linear(input_file_name):
 def reglinear(input_file_name):
     x, y = read_data_file(input_file_name)
     x = feature_selection_financial_data(x)
-    x = normalize_data(x)
-    y = normalize_data(y)
+    m, n = np.shape(x)    
+    print "Shape of data: ", m, " rows, ", n, " cols."
+    #x = normalize_data(x)
+    #y = normalize_data(y)
+    print x[0], y[0]
     
     fold_1_x = x[0 : len(x) / 2]
     fold_1_y = y[0 : len(y) / 2]
     fold_2_x = x[len(x) / 2 : len(x)]
     fold_2_y = y[len(y) / 2 : len(y)]
     # Get normalised data
-    fold_1_x_n = normalize_data(x[0 : len(x) / 2])
-    fold_1_y_n = normalize_data(y[0 : len(y) / 2])
-    fold_2_x_n = normalize_data(x[len(x) / 2 : len(x)])
-    fold_2_y_n = normalize_data(y[len(y) / 2 : len(y)])
-    
-    x_print = np.array(np.arange(len(fold_2_y)))    
-    m, n = np.shape(x)    
-    print "Shape of data: ", m, " rows, ", n, " cols."
-    
+    fold_1_x_n = normalize_data(fold_1_x)
+    fold_1_y_n = normalize_data(fold_1_y)
+    fold_2_x_n = normalize_data(fold_2_x)
+    fold_2_y_n = normalize_data(fold_2_y)    
+    # Cross-fold validation. 
     theta1, validate_msq1 = find_theta_linear(fold_1_x_n, fold_1_y_n, fold_2_x, fold_2_y, regularised=True)
     theta2, validate_msq2 = find_theta_linear(fold_2_x_n, fold_2_y_n, fold_1_x, fold_1_y, regularised=True)
-    
+    # Average mean squared loss. 
     average_msl = (validate_msq1 + validate_msq2) / 2
-    print "Average validate mean squared loss: ", average_msl
+    print "\n----\nAverage validate mean squared loss: ", average_msl
     
     if DEBUG: 
+        x_print = np.array(np.arange(len(fold_2_y)))    
         line = np.zeros(len(fold_2_y))
         for i in range(n): 
             line += theta1[i] * fold_2_x_n[:, i]
@@ -231,10 +224,10 @@ def feature_selection_financial_data_logistic(data):
     new_data = np.ones(shape=(len(data), 5))
     
     # new_data[:, 0] = data[: , slice_size]
-    new_data[:, 0] = np.log(data[: , 0 ] - data[: , 1 ])
+    new_data[:, 0] = (data[: , 0 ] - data[: , 1 ]) ** 3
     new_data[:, 1] = np.square(data[: , slice_size] - data[: , slice_size + 1]) 
     new_data[:, 2] = data[: , slice_size + 1] - data[: , slice_size + 2]
-    new_data[:, 3] = np.square(data[: , slice_size])
+    new_data[:, 3] = (data[: , slice_size]) ** 11
     # new_data[:, 5] = np.square(data[: , 0])
     """
     new_data[:, 1] = data[: , slice_size + 1]
@@ -256,51 +249,50 @@ def feature_selection_financial_data_logistic(data):
 def accuracy(theta, validate_x, validate_y):
     """Calculate accuracy of theta on a validate dataset. 
     validate_y contains the actual classes for comparison."""
-    m, n = np.shape(validate_x)
-    k = theta.shape[0]
+    data_count = np.shape(validate_x)[0]
+    class_count = theta.shape[0]  # Number of classes
     success = 0
-    classes_count = {}
+    classes_count = {}  # Maintain class occurrences in a dictionary
     computed_y = []
-    for i in range(0, m): 
+    for i in range(0, data_count): 
         try: 
             classes_count[validate_y[i]] = classes_count[validate_y[i]] + 1
         except KeyError:  # no such key yet
             classes_count[validate_y[i]] = 1
-        probabilities = [class_probability(theta, validate_x[i], j) for j in range(k)]
+        probabilities = [class_probability(theta, validate_x[i], j) for j in range(class_count)]
         # print probabilities
         winner = np.argmax(probabilities)  # Hard accuracy
         computed_y.append(winner)
         if int(validate_y[i]) == winner: 
             success += 1
     print "\nDataset representation by classes: "
-    for cl in classes_count.keys():         
-        print "Class ", int(cl) , ": ", (float(classes_count[cl]) * 100.) / float(m), "%"         
-    accuracy = (float(success) * 100.) / float(m)
+    for cl in classes_count.keys(): 
+        print "Class ", int(cl) , ": ", (float(classes_count[cl]) * 100.) / float(data_count), "%"         
+    accuracy = (float(success) * 100.) / float(data_count)
     print "\nAccuracy: ", accuracy, "%"
     print computed_y
     return accuracy, computed_y
 
-def find_theta_logistic(train_x, train_y, validate_x, validate_y, cost_function, regularise=False, max_iterations=100, no_classes=5):
+def find_theta_logistic(train_x, train_y, validate_x, validate_y, cost_function, regularise=False, max_iterations=20, no_classes=5):
     """Find optimal theta for a train dataset, and use the result to compute 
     the accuracy on a validate dataset."""
-    n = np.shape(train_x)[1]
-    theta = np.ones((no_classes, n))
+    features_count = np.shape(train_x)[1]
+    theta = np.ones((no_classes, features_count))
     print "Initialized empty theta with shape:", theta.shape
     # Run the L-BFGS-B algorithm to find optimal values for theta. 
     # L-BFGS-B seems to perform better than BFGS in this case. 
-    output = minimize(cost_function, theta, args=(train_x, train_y, regularise,), method='L-BFGS-B', jac=True, options={'maxiter': max_iterations, 'disp':True})
-    theta = output.x.reshape((no_classes, n))
+    output = minimize(cost_function, theta, args=(train_x, train_y, regularise,), method='L-BFGS-B', jac=True, options={'maxiter': max_iterations, 'disp':False})
+    theta = output.x.reshape((no_classes, features_count))
     print "Optimized Theta: ", theta
-    # test_classess(theta, validate_x, validate_y)
     validate_cost, grad = cost_function(theta, validate_x, validate_y)
     print "Cost for validate: ", validate_cost
     acc, y_computed = accuracy(theta, validate_x, validate_y)
     return theta, acc, validate_cost
 
-def logistic():
-    x, y = read_data_file('stock_price.csv', True)  
+def logistic(input_file_name):
+    print "Running logistic regression on", input_file_name, ".\n"
+    x, y = read_data_file(input_file_name, True)  
     # x = feature_selection_financial_data_logistic(x)
-    print x[0]
     print "Data shape: ", y.shape, x.shape
     
     train_x = x[0 : len(x) / 2]
@@ -323,28 +315,15 @@ def reglogistic(input_file_name):
     print "Running regularised logistic regression on", input_file_name, ".\n"
     x, y = read_data_file(input_file_name, True)
     print "Data shape: ", y.shape, x.shape    
-    # x = feature_selection_financial_data_logistic(x)
-    # x = LinearSVC(C=0.01, penalty="l1", dual=False).fit_transform(x, y)
+    x = feature_selection_financial_data_logistic(x)
     # 
+    print x[0]
     train_x = x[0 : len(x) / 2]
     train_y = y[0 : len(y) / 2]
     validate_x = x[len(x) / 2 : len(x)]
     validate_y = y[len(y) / 2 : len(y)]
     train_x_n = normalize_data(train_x)
-    validate_x_n = normalize_data(validate_x)
-    
-    x_print = np.array(np.arange(len(validate_y)))
-    
-    """
-    colors = ['r', 'g', 'b', 'c', 'y']
-    for i in range(5): 
-        cl_where = np.where(train_y == i)
-        scatter(x_print[cl_where], train_x[cl_where, 0], marker='o', c=colors[i])    
-    xlabel('Previous day price')
-    ylabel('Previous day value')
-    legend(["Class " + str(c) for c in range(5)])
-    show()     
-    """
+    validate_x_n = normalize_data(validate_x)    
     
     theta1, accuracy1, validate_cost_1 = find_theta_logistic(train_x_n, train_y, validate_x_n, validate_y, compute_cost, regularise=True)
     theta2, accuracy2, validate_cost_2 = find_theta_logistic(validate_x_n, validate_y, train_x_n, train_y, compute_cost, regularise=True)
@@ -356,7 +335,8 @@ def reglogistic(input_file_name):
     return average_accuracy
     
 def compute_class(current_price, previous_price):
-    """Determine the class given the prices of current and previous days."""
+    """Determine the class of a day given 
+    the prices of current and previous days."""
     change = current_price - previous_price
     percentage = (100 * change) / previous_price
     if abs(percentage) < 5.: 
@@ -370,8 +350,7 @@ def compute_class(current_price, previous_price):
     elif percentage <= -10.: 
         price_class = 4
     if DEBUG:
-        pass 
-        # print "Current: ", current_price, " Previous: ", previous_price, " Chage: ", percentage, "Class: ", price_class
+        print "Current: ", current_price, " Previous: ", previous_price, " Chage: ", percentage, "Class: ", price_class
     return price_class
     
 def identity(class1, class2):
@@ -381,54 +360,36 @@ def identity(class1, class2):
 
 def compute_cost(theta, X, y, regularise=False, num_classes=5):
     """Cost function for logistic regression.
-    Returns a negated cost, because is to be optimised by a minimisation algorithm."""
+    Returns negated cost and gradient, because 
+    is to be optimised by a minimisation algorithm."""
     global LAMBDA
-    # Need to reshape, because minimization algorithms flatten theta.  
     data_count, features_count = X.shape
+    # Need to reshape, because optimisation algorithms flatten theta.  
     theta = theta.reshape((num_classes, features_count))
     loss = 0.
     grad = np.zeros(shape=theta.shape)
-    for i in range(0, data_count):  # For every data point in x
+    for i in range(0, data_count):  # For every data point in X
         current_class = int(y[i])
         probability = class_probability(theta, X[i], current_class)
-        loss += np.log(probability)       
-        for k in range(0, num_classes):
+        loss += np.log(probability)           
+        for k in range(0, num_classes):  # Update gradient for every class. 
             grad[k] += np.dot(X[i], (identity(current_class, k) - class_probability(theta, X[i], k)))                
     if regularise:  # Ridge regularisation
-        loss = LAMBDA * loss - (1 - LAMBDA) * np.sum([abs(theta_item) ** 2 for theta_item in theta.flatten()])
+        loss = LAMBDA * loss - (1 - LAMBDA) * np.sum(np.absolute(theta) ** 2)
         grad = LAMBDA * grad - 2 * (1 - LAMBDA) * theta
     return [-loss, -grad.flatten()]
   
-def test_logistic():
-    x, y = read_data_file('stock_price.csv', True)  
-    # x = feature_selection_financial_data_logistic(x)
-    print "before", x.shape
-    x = LinearSVC(C=0.01, penalty="l1", dual=False).fit_transform(x, y)
-    print x.shape
-    
-    train_x = x[0 : len(x) / 2]
-    train_y = y[0 : len(y) / 2]
-    validate_x = x[len(x) / 2 : len(x)]
-    validate_y = y[len(y) / 2 : len(y)]
-    train_x_n = normalize_data(train_x)
-    validate_x_n = normalize_data(validate_x)
-    
-    logreg = linear_model.LogisticRegression()
-    logreg.fit(validate_x, validate_y)
-    print "Theta:", logreg.coef_
-    print logreg.score(train_x, train_y)
-    print logreg.predict(train_x)
-    
-    clf = OutputCodeClassifier(LinearSVC(random_state=0), code_size=2, random_state=0)
-    clf.fit(train_x, train_y)
-    print clf.predict(validate_x)
-    print clf.score(validate_x, validate_y)
-  
 if __name__ == '__main__':
-    # reglinear('stock_price.csv')
-    #reglogistic('stock_price.csv')
-    logistic()
-    # test_logistic()
+    global LAMBDA
+    start_time = time.time()
+    
+    # linear('stock_price.csv')
+    reglinear('stock_price.csv')
+    # logistic('stock_price.csv')
+    # reglogistic('stock_price.csv')
+    
+    elapsed_time = time.time() - start_time
+    print "Total time:", elapsed_time, "seconds."
     
     
 # EOF
