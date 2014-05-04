@@ -4,6 +4,117 @@ Created on 14 Mar 2014
 @author: nikola
 '''
 
+"""    
+    fold_1_x = x[0 : len(x) / 2]
+    fold_1_y = y[0 : len(y) / 2]
+    fold_2_x = x[len(x) / 2 : len(x)]
+    fold_2_y = y[len(y) / 2 : len(y)] 
+    """
+
+
+
+  
+def linear_numpy2_cv(input_filename):
+    x, y = read_data_file(input_filename)
+    x = feature_selection_financial_data(x)
+    x = standardize_data(x)
+    print x[0]
+    # y = standardize_data(y)
+    # x = normalize(x)
+    y = y - np.mean(y)
+    
+    rng = np.random.RandomState(42)
+    indices = np.arange(x.shape[0])
+    rng.shuffle(indices)
+    
+    fold_1_x = x[indices[0 : len(x) / 2]]
+    fold_1_y = y[indices[0 : len(y) / 2]]
+    fold_2_x = x[indices[len(x) / 2 : len(x)]]
+    fold_2_y = y[indices[len(y) / 2 : len(y)]]
+    
+    clf = linear_model.RidgeCV(alphas=[0.1, 1.0, 10.0], fit_intercept=False)
+    clf.fit (fold_1_x, fold_1_y)
+    sq_error1 = mean_squared_loss(clf.coef_, fold_2_x, fold_2_y)
+    print clf.coef_
+    print clf.alpha_
+    print sq_error1
+    
+    clf = linear_model.RidgeCV(alphas=[0.1, 1.0, 10.0], fit_intercept=False)
+    clf.fit (fold_2_x, fold_2_y)
+    sq_error1 = mean_squared_loss(clf.coef_, fold_1_x, fold_1_y)
+    print clf.coef_
+    print clf.alpha_
+    print sq_error1
+    """    
+    x_print = np.array(np.arange(0, len(y)))
+    w = np.linalg.lstsq(fold_1_x, fold_1_y)[0]  
+    print(w)
+    sq_error1 = mean_squared_loss(w, fold_2_x, fold_2_y)
+    print sq_error1
+    
+    
+    w = np.linalg.lstsq(fold_2_x, fold_2_y)[0]  
+    print(w)
+    sq_error2 = mean_squared_loss(w, fold_1_x, fold_1_y)
+    print sq_error2
+    
+    print "Average:", (sq_error1 + sq_error2) / 2
+    """
+
+def normalize_data2(data1, data2):
+    """"""
+    # Create a deep copy to make sure original data is intact
+    new_data = copy.deepcopy(data1)
+    new_data2 = copy.deepcopy(data2)
+    try: 
+        # will throw index error if data a vector
+        cols = new_data.shape[1]
+        for i in range(0, cols - 1): 
+            mean = np.mean(new_data[:, i])
+            sdt = np.std(new_data[:, i])
+            # print i,"mean", mean, "sdt", sdt
+            new_data[:, i] = (new_data[:, i] - mean) / sdt
+            new_data2[:, i] = (new_data2[:, i] - mean) / sdt
+    except IndexError: 
+        # Data is a vector. 
+        mean = np.mean(new_data)
+        sdt = np.std(new_data)
+        new_data = (new_data - mean) / sdt
+        new_data2 = (new_data2 - mean) / sdt
+    return new_data, new_data2
+
+def standardize_data(data, mean_list=None, sdt_list=None):
+    """"""
+    # Create a deep copy to make sure original data is intact
+    new_data = copy.deepcopy(data)
+    means = []
+    standards = []
+    try: 
+        # will throw index error if data a vector
+        cols = new_data.shape[1]
+        for i in range(0, cols - 1): 
+            if not mean_list and not sdt_list: 
+                mean = np.mean(new_data[:, i])
+                sdt = np.std(new_data[:, i])
+            else: 
+                mean = mean_list[i]
+                sdt = sdt_list[i]            
+            print i,"mean", mean, "sdt", sdt
+            new_data[:, i] = (new_data[:, i] - mean) / sdt
+            means.append(mean)
+            standards.append(sdt)
+    except IndexError: 
+        # Data is a vector. 
+        if not mean_list and not sdt_list:
+            mean = np.mean(new_data)
+            sdt = np.std(new_data)
+        else: 
+            mean = mean_list[0]
+            sdt = sdt_list[0]   
+        new_data = (new_data - mean) / sdt
+        means.append(mean)
+        standards.append(sdt)
+    return new_data, means, standards
 
 # loss = LAMBDA * loss - (1 - LAMBDA) * np.sum([abs(theta_item) ** 2 for theta_item in theta.flatten()])
 
@@ -25,8 +136,8 @@ def test_logistic():
     train_y = y[0 : len(y) / 2]
     validate_x = x[len(x) / 2 : len(x)]
     validate_y = y[len(y) / 2 : len(y)]
-    train_x_n = normalize_data(train_x)
-    validate_x_n = normalize_data(validate_x)
+    train_x_n = standardize_data(train_x)
+    validate_x_n = standardize_data(validate_x)
     
     logreg = linear_model.LogisticRegression()
     logreg.fit(validate_x, validate_y)

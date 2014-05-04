@@ -4,6 +4,25 @@ Created on 9 Apr 2014
 @author: nikola
 '''
 
+
+def ancestral_sampling_r(network, predefined=None):
+    if predefined: 
+        output = predefined
+    else: 
+        output = {}
+    remaining = []
+    for key, item in network.items(): 
+        if isinstance(item, list): 
+            output[key] = sample(item[0])
+            # print "key:", key, "sample:", output[key]
+        elif isinstance(item, OrderedDict):
+            output, rem2 = conditional_sample(key, item, output) 
+            remaining = remaining + rem2
+    print "Remaining:", remaining
+    if remaining:         
+        output = dict(output.items() + ancestral_sampling_r(network, output).items())
+    return output
+
 def class_prob(n, data):
     """Naive bayes?"""
     rows, cols = data.shape
