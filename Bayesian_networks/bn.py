@@ -172,7 +172,7 @@ def bnbayesfit(structure_file_name, data_file_name):
     fittedbn = {} 
     for i in range(cols): 
         fittedbn[i] = estimate_parameter(structure, data, i)
-    print fittedbn
+    print "Fitted BN:", fittedbn
     return fittedbn
     
 def bnsample(fittedbn, nsamples):
@@ -184,7 +184,7 @@ def bnsample(fittedbn, nsamples):
         sample_dict = ancestral_sampling(fittedbn) 
         # Replace row with generated sample
         output[i] = np.array([sample_dict[key] for key in sorted(sample_dict.keys())])
-    print output
+    print "Generated sample:\n", output
     return output
     
 def learn_from_samples(fittedbn, nsamples, structure_file_name):
