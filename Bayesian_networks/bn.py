@@ -186,20 +186,14 @@ def bnsample(fittedbn, nsamples):
         output[i] = np.array([sample_dict[key] for key in sorted(sample_dict.keys())])
     print "Generated sample:\n", output
     return output
-    
-def learn_from_samples(fittedbn, nsamples, structure_file_name):
-    """Use samples to learn parameters of a bayesian network. 
-    Do a fit from the generated samples. """
-    samples = bnsample(fittedbn, nsamples)
-    second_fit = bnbayesfit(structure_file_name, samples)
-    return second_fit
 
 if __name__ == '__main__':
     start_time = time.time()
     
     fittedbn = bnbayesfit("bnstruct.csv", "bndata.csv")
     bnsample(fittedbn, 10)
-    # learn_from_samples(fittedbn, 10000, "bnstruct.csv")
     
     elapsed_time = time.time() - start_time    
     print "Total execution time:", elapsed_time, "seconds."
+
+# EOF

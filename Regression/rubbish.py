@@ -275,7 +275,7 @@ x_print = np.array(np.arange(len(validate_y)))
     show()     
     """
     
-    """    accs = []
+"""    accs = []
     for l in np.linspace(0., 1., num=11): 
         LAMBDA = l
         accs.append(reglogistic('stock_price.csv'))
